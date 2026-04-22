@@ -12,9 +12,13 @@ public class AppServer
 
     private readonly List<ClientHandler> _clients = new();
 
-    public event Action<string, ServerMessage>? OnMessageReceived;
-    public event Action<string>? OnClientConnect;
-    public event Action<string>? OnClientDisconnect;
+    public delegate void OnMessageReceivedHandler(string userId, ServerMessage message);
+    public delegate void OnClientConnectHandler(string userId);
+    public delegate void OnClientDisconnectHandler(string userId);
+
+    public event OnMessageReceivedHandler? OnMessageReceived;
+    public event OnClientConnectHandler? OnClientConnect;
+    public event OnClientDisconnectHandler? OnClientDisconnect;
 
     public AppServer(string secretKey)
     {

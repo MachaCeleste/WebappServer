@@ -8,6 +8,7 @@
     <Version>0.1.0</Version>
     <Authors>Macha Celeste</Authors>
     <Company>Celestial Corp</Company>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
