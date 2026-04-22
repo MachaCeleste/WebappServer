@@ -5,7 +5,7 @@ namespace WebappServer.NetworkMessages;
 public class ClientMessage : Message
 {
     [JsonPropertyName("id")]
-    public int ID { get; set; }
+    public int ID { get; private set; }
 
     [JsonConstructor]
     private ClientMessage() { }

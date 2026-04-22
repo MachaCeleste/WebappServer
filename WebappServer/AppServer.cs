@@ -1,53 +1,28 @@
 using System.Net.WebSockets;
-using System.Text;
 using Microsoft.AspNetCore.Http;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
 using WebappServer.NetworkMessages;
-using System.Security.Claims;
 
 namespace WebappServer;
 
 public class AppServer
 {
-    private static readonly Lazy<AppServer> _singleton = new(() => new AppServer());
-    public static AppServer Singleton => _singleton.Value;
+    public static AppServer Singleton { get; private set; }
+
+    private TokenHelper _tokenHelper { get; }
 
     private readonly List<ClientHandler> _clients = new();
 
     public event Action<string, ServerMessage>? OnMessageReceived;
-    public event Action<string>? OnClientConnected;
+    public event Action<string>? OnClientConnect;
     public event Action<string>? OnClientDisconnect;
 
-    private string _secretKey = "default";
-
-    public void SetSecret(string secretKey) => _secretKey = secretKey;
-
-    public (string AccessToken, string RefreshToken) GrantTokens(string? existingUserId = null)
+    public AppServer(string secretKey)
     {
-        string userId = existingUserId ?? Guid.NewGuid().ToString();
+        if (Singleton != null)
+            throw new InvalidOperationException("AppServer is already instantiated!");
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var accessDescriptor = new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity(new[] { new Claim("sub", userId) }),
-            Expires = DateTime.UtcNow.AddDays(2),
-            SigningCredentials = creds
-        };
-
-        var refreshDescriptor = new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity(new[] { new Claim("sub", userId) }),
-            Expires = DateTime.UtcNow.AddYears(4),
-            SigningCredentials = creds
-        };
-
-        var handler = new JwtSecurityTokenHandler();
-        return (
-            handler.WriteToken(handler.CreateToken(accessDescriptor)),
-            handler.WriteToken(handler.CreateToken(refreshDescriptor))
-            );
+        _tokenHelper = new TokenHelper(secretKey);
+        Singleton = this;
     }
 
     public async Task HandleNewConnection(HttpContext context)
@@ -55,7 +30,7 @@ public class AppServer
         if (!context.WebSockets.IsWebSocketRequest) return;
 
         string? token = context.Request.Query["token"];
-        string? userId = ValidateToken(token);
+        string? userId = _tokenHelper.ValidateToken(token);
 
         if (userId == null)
         {
@@ -66,7 +41,7 @@ public class AppServer
         using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
         ClientHandler client = new ClientHandler(userId, webSocket);
         _clients.Add(client);
-        OnClientConnected?.Invoke(userId);
+        OnClientConnect?.Invoke(userId);
 
         await client.ListenConnection();
 
@@ -77,36 +52,10 @@ public class AppServer
     public async Task MessageAllClients(ClientMessage message)
     {
         foreach (var client in _clients.Where(x => x.Socket.State == WebSocketState.Open))
-        {
             await client.SendMessage(message);
-        }
     }
 
-    public ClientHandler? GetClient(string userId)
-    {
-        return _clients.FirstOrDefault(x => x.UserId == userId);
-    }
+    public ClientHandler? GetClient(string userId) => _clients.FirstOrDefault(x => x.UserId == userId);
 
-    public string? ValidateToken(string token)
-    {
-        try
-        {
-            var handler = new JwtSecurityTokenHandler();
-            var validations = new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey)),
-                ValidateIssuer = false,
-                ValidateAudience = false
-            };
-            var claims = handler.ValidateToken(token, validations, out _);
-            return claims.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? claims.FindFirst("sub")?.Value;
-        }
-        catch { return null; }
-    }
-
-    internal void MessageReceived(string userId, ServerMessage message)
-    {
-        OnMessageReceived?.Invoke(userId, message);
-    }
+    internal void MessageReceived(string userId, ServerMessage message) => OnMessageReceived?.Invoke(userId, message);
 }

@@ -29,7 +29,7 @@ public class ClientHandler
                 var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
                 var message = JsonSerializer.Deserialize<ServerMessage>(json);
                 if (message == null || message.Sequence <= Sequence) continue;
-                Sequence++;
+                Sequence++; // TODO is this effective enough to stop packet tampering?
                 AppServer.Singleton.MessageReceived(this.UserId, message);
             }
         }

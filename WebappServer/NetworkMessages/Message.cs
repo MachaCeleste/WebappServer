@@ -16,20 +16,9 @@ public class Message
     [JsonConstructor]
     public Message() { }
 
-    public void AddString(string value)
-    {
-        this.StrValues.Add(value);
-    }
-
-    public void AddInt(int value)
-    {
-        this.IntValues.Add(value);
-    }
-
-    public void AddFloat(float value)
-    {
-        this.FloatValues.Add(value);
-    }
+    public void AddString(string value) => this.StrValues.Add(value);
+    public void AddInt(int value) => this.IntValues.Add(value);
+    public void AddFloat(float value) => this.FloatValues.Add(value);
 
     public string GetString()
     {
